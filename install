@@ -1,0 +1,11 @@
+#! /usr/bin/env ruby
+
+scripts = %w(fujix)
+bin_dir = '/usr/local/bin'
+this_dir = File.expand_path(File.dirname(__FILE__))
+
+scripts.each do |script|
+    print "Creating symlink for '#{script}'..."
+    `ln -s "#{File.join(this_dir, script)}" "#{File.join(bin_dir, script)}"`
+    puts 'done'
+end
