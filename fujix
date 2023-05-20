@@ -1,0 +1,71 @@
+#! /usr/bin/env ruby
+
+@path_arg = ARGV[0]
+
+unless @path_arg
+    puts 'Extracts Fujifilm custom EXIF metadata and assigns it to keywords and description, to make it more accessible in Apple Photos.'
+    puts
+    puts '    Usage: fujix [file|directory]'
+    exit 1
+end
+
+if `which exiftool` == ''
+    puts 'ExifTool is not installed -- download from https://exiftool.org/'
+    exit 1
+end
+
+if File.directory?(@path_arg)
+    @files = Dir.glob(File.join(@path_arg, '*.jpg'))
+else
+    @files = [@path_arg]
+end
+
+# All Fujifilm tag names: https://exiftool.org/TagNames/FujiFilm.html
+READ_ARGS = %w(
+    -FilmMode
+    -ShadowTone
+    -HighlightTone
+    -Saturation
+    -ColorChromeEffect
+    -NoiseReduction
+    -GrainEffectRoughness
+    -DynamicRangeSetting
+    -DynamicRange
+    -DRangePriority
+    -DRangePriorityAuto
+    -DRangePriorityFixed
+).join(' ')
+
+FILM_MODE_NAMES = {
+    'F0/Standard (Provia)' => 'Standard',
+    'F2/Fujichrome (Velvia)' => 'Velvia',
+    'F1b/Studio Portrait Smooth Skin Tone (Astia)' => 'Astia',
+}
+
+@files.each do |file|
+    # Show the progress
+    print file
+
+    # Read a bunch of stuff
+    description = `exiftool #{READ_ARGS} '#{file}'`.strip
+
+    # Remove extraneous whitespace
+    description = description.gsub(/ +:/, ':')
+
+    # Convert output to key-value pairs
+    lookup = Hash[description.split("\n").map { |line| line.split(':').map(&:strip) }]
+    film_mode = lookup["Film Mode"]
+
+    # Provide nicer names for some film modes
+    film_mode = FILM_MODE_NAMES[film_mode] || film_mode
+    
+    # Generate keywords for Apple Photos
+    keywords = [
+        "film: #{film_mode || 'Unknown'}"
+    ].join(',')
+
+    # Write out description and keywords
+    `exiftool -overwrite_original -Description='#{description}' -Keywords='#{keywords}' '#{file}'`
+
+    puts ' done'
+end
